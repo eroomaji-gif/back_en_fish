@@ -25,7 +25,7 @@ const socket = io({ autoConnect: false, reconnection: true, reconnectionDelay: 5
 let joined = false, needsJoin = false, paused = false, chatOpen = false;
 let playerId = null, roomCode = 'PUBLIC', latestState = null, snapshots = [];
 let serverOffset = 0, offsetReady = false, ping = 0, seq = 0, pendingInputs = [];
-let local = null, banner = null, unread = 0, lastNetUpdate = 0, lastFrame = performance.now();
+let local = null, banner = null, unread = 0, lastNetUpdate = 0, lastFrame = performance.now();lastHud = {};
 let firing = false, mouseAim = null, reloadPending = false;
 const keys = {}, parts = [], fx = [], pops = [];
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
