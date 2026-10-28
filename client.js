@@ -170,19 +170,20 @@ function reconcileLocal(auth) {
     local = { ...auth, x, y };
   }
 }
+const LERP_KEYS = ['x', 'y', 'hp', 'ph', 'life', 't', 'flash', 'hurt', 'sx', 'sy', 'tx', 'ty', 'vx', 'vy'];
 function interpolateEntity(a, b, t) {
   if (!a || a.id !== b.id) return b;
-  const out = { ...a, ...b };
-  for (const key of ['x', 'y', 'hp', 'ph', 'life', 't', 'flash', 'hurt', 'sx', 'sy', 'tx', 'ty', 'vx', 'vy']) {
-    if (Number.isFinite(a[key]) && Number.isFinite(b[key])) out[key] = lerp(a[key], b[key], t);
-  }
-  if (Number.isFinite(a.ang) && Number.isFinite(b.ang)) out.ang = lerpAngle(a.ang, b.ang, t);
-  if (Number.isFinite(a.aim) && Number.isFinite(b.aim)) out.aim = lerpAngle(a.aim, b.aim, t);
+  const out = Object.assign({}, b);
+  for (const key of LERP_KEYS) { const p = a[key], q = b[key]; if (typeof p === 'number' && typeof q === 'number') out[key] = p + (q - p) * t; }
+  if (typeof a.ang === 'number' && typeof b.ang === 'number') out.ang = lerpAngle(a.ang, b.ang, t);
+  if (typeof a.aim === 'number' && typeof b.aim === 'number') out.aim = lerpAngle(a.aim, b.aim, t);
   return out;
 }
 function interpolateList(oldList = [], newList = [], t) {
-  const old = new Map(oldList.map(e => [e.id, e]));
-  return newList.map(e => interpolateEntity(old.get(e.id), e, t));
+  if (!oldList.__map) oldList.__map = new Map(oldList.map(e => [e.id, e]));
+  const old = oldList.__map, out = new Array(newList.length);
+  for (let i = 0; i < newList.length; i++) out[i] = interpolateEntity(old.get(newList[i].id), newList[i], t);
+  return out;
 }
 function renderState() {
   if (!latestState) return null;
