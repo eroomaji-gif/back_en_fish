@@ -461,7 +461,7 @@ io.on('connection', socket => {
       ack?.({ ok: false, error: 'บัญชีผู้เล่นนี้กำลังเชื่อมต่ออยู่ กรุณารีเฟรชอีกครั้ง' });
       return;
     }
-    if (!p && room.players.size >= MAX_PLAYERS) { ack?.({ ok: false, error: 'ห้องเต็มแล้ว (สูงสุด 8 คน)' }); return; }
+    if (!p && room.players.size >= MAX_PLAYERS) { ack?.({ ok: false, error: 'ห้องเต็มแล้ว (สูงสุด 4 คน)' }); return; }
     if (p) {
       p.socketId = socket.id; p.connected = true; p.disconnectT = 0; p.name = cleanName(payload.name || p.name);
       systemChat(room, `${p.name} กลับเข้าเกมแล้ว`);
