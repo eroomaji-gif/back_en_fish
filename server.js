@@ -427,7 +427,8 @@ function snapshot(room) {
     t: Date.now(), tick: room.tick, wave: room.wave, score: room.score, isBossWave: room.isBossWave,
     spawnQ: room.spawnQ, players: [...room.players.values()].map(publicPlayer), fish: room.fish,
     boss: room.boss, bullets: room.bullets.map(({ hits, ...b }) => b), eproj: room.eproj,
-    strikes: room.strikes, nades: room.nades, pickups: room.pickups
+    strikes: room.strikes, nades: room.nades, pickups: room.pickups,
+        fish: room.fish.map(f => ({ id: f.id, t: f.t, x: +f.x.toFixed(1), y: +f.y.toFixed(1), hp: f.hp, max: f.max, ang: +f.ang.toFixed(2), ph: +f.ph.toFixed(2), size: +f.size.toFixed(1), elite: f.elite, puffer: f.puffer, c1: f.c1, pattern: f.pattern, tail: f.tail, fin: f.fin }))
   };
 }
 const server = http.createServer(async (req, res) => {
