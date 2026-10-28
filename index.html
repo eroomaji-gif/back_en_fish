@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <script src="/socket.io/socket.io.js"></script>
+  
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>ยิงปลาบนบก</title>
+<link rel="icon" href="data:,">
+<style>
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; touch-action: none; }
+html, body { margin: 0; height: 100%; background: #0b1220; font-family: system-ui, sans-serif; overflow: hidden; }
+body { display: flex; align-items: center; justify-content: center; }
+#wrap { position: relative; aspect-ratio: 9/16; height: 100vh; max-width: 100vw; max-height: calc(100vw * 16 / 9); background: #000; overflow: hidden; border-radius: 12px; }
+canvas { width: 100%; height: 100%; display: block; }
+#hud { position: absolute; top: 0; left: 0; right: 0; height: 7.2%; min-height: 40px; display: flex; align-items: center; justify-content: space-between; padding: 0 3%; background: rgba(8,12,20,.85); color: #fff; font-weight: 700; font-size: clamp(10px, 3.3vw, 17px); gap: 4px; }
+#hud span { white-space: nowrap; }
+#pause { width: 32px; height: 32px; border-radius: 8px; border: 0; background: #fff; color: #111; font-weight: 900; font-size: 15px; flex: none; }
+#joy { position: absolute; left: 4%; bottom: 3%; width: 27%; aspect-ratio: 1; border-radius: 50%; background: rgba(255,255,255,.12); border: 2px solid rgba(255,255,255,.35); }
+#knob { position: absolute; left: 50%; top: 50%; width: 42%; height: 42%; margin: -21% 0 0 -21%; border-radius: 50%; background: rgba(255,255,255,.75); box-shadow: 0 2px 8px rgba(0,0,0,.5); }
+#fire { position: absolute; right: 5%; bottom: 5%; width: 22%; aspect-ratio: 1; border-radius: 50%; border: 3px solid #fff; background: radial-gradient(circle, #ff5a4d, #c3281c); color: #fff; font-size: 28px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 14px rgba(0,0,0,.6); }
+#fire.down { transform: scale(.93); filter: brightness(1.2); }
+#overlay { position: absolute; inset: 0; background: rgba(5,10,18,.8); color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 7%; gap: 12px; }
+#overlay h1 { margin: 0; font-size: clamp(26px, 9vw, 44px); color: #ffd23f; }
+#overlay p { margin: 0; opacity: .92; font-size: clamp(12px, 3.6vw, 17px); line-height: 1.55; }
+#overlay button { margin-top: 8px; padding: 12px 32px; font-size: 18px; font-weight: 800; border: 0; border-radius: 12px; background: #ffd23f; color: #111; }
+#overlay { z-index: 20; backdrop-filter: blur(4px); }
+#joinFields { width: 100%; max-width: 310px; display: grid; gap: 8px; }
+#joinFields label { text-align: left; font-size: 12px; opacity: .8; }
+#joinFields input, #chatInput { width: 100%; border: 1px solid rgba(255,255,255,.25); border-radius: 10px; padding: 10px 12px; background: rgba(0,0,0,.45); color: #fff; font: 600 15px system-ui; user-select: text; touch-action: manipulation; }
+#joinFields input { text-align: center; text-transform: none; }
+#joinFields input:focus, #chatInput:focus { outline: 2px solid #ffd23f; }
+#joinError { min-height: 18px; color: #ff8b80 !important; }
+#net { position: absolute; bottom: .8%; left: 3%; z-index: 5; color: #d7e3ee; background: rgba(4,10,17,.72); border-radius: 10px; padding: 4px 8px; font: 700 9px system-ui; pointer-events: none; }
+#net.online { color: #80f2ad; } #net.offline { color: #ff9d94; }
+#roomTag { position: absolute; bottom: .8%; right: 3%; z-index: 6; border: 1px solid rgba(255,255,255,.25); border-radius: 10px; padding: 4px 8px; background: rgba(4,10,17,.72); color: #fff; font: 700 9px system-ui; }
+#chatToggle { position: absolute; right: 5%; bottom: 20%; z-index: 8; width: 38px; height: 38px; border: 1px solid rgba(255,255,255,.45); border-radius: 50%; background: rgba(5,15,25,.82); color: white; font-size: 17px; }
+#chatBadge { position: absolute; right: -3px; top: -4px; min-width: 16px; height: 16px; line-height: 16px; border-radius: 8px; background: #ff4d45; font: 800 9px system-ui; }
+#chatPanel { position: absolute; z-index: 15; left: 4%; right: 4%; bottom: 19%; height: 34%; padding: 8px; display: flex; flex-direction: column; gap: 6px; border: 1px solid rgba(255,255,255,.22); border-radius: 12px; background: rgba(4,10,17,.94); box-shadow: 0 8px 30px #000; }
+#chatLog { flex: 1; min-height: 0; overflow-y: auto; color: #fff; font: 12px/1.4 system-ui; user-select: text; touch-action: pan-y; }
+.chatLine { margin: 3px 0; overflow-wrap: anywhere; }
+.chatLine.system { color: #9fb2c3; font-style: italic; }
+.chatLine b { color: #7fe0ff; }
+#chatForm { display: flex; gap: 5px; }
+#chatInput { min-width: 0; }
+#chatForm button { border: 0; border-radius: 9px; padding: 0 12px; background: #ffd23f; font-weight: 800; }
+#respawn { position: absolute; z-index: 7; left: 15%; right: 15%; top: 43%; text-align: center; color: #fff; padding: 14px; border-radius: 14px; background: rgba(5,10,18,.78); font-weight: 800; pointer-events: none; }
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="c" width="720" height="1280"></canvas>
+  <div id="hud">
+    <span id="hp">❤️ 100</span>
+    <span id="ammo">🔫 30</span>
+    <span id="score">SCORE: 0</span>
+    <span id="wave">WAVE: 1</span>
+    <button id="pause">❚❚</button>
+  </div>
+  <div id="net" class="offline">● ยังไม่เชื่อมต่อ</div>
+  <button id="roomTag" class="hidden" title="คัดลอกลิงก์ห้อง">ห้อง PUBLIC</button>
+  <div id="joy"><div id="knob"></div></div>
+  <div id="fire">🎯</div>
+  <button id="chatToggle" class="hidden" aria-label="เปิดแชท">💬<span id="chatBadge" class="hidden">0</span></button>
+  <section id="chatPanel" class="hidden" aria-label="แชทห้อง">
+    <div id="chatLog"></div>
+    <form id="chatForm"><input id="chatInput" maxlength="160" autocomplete="off" placeholder="พิมพ์ข้อความ…"><button type="submit">ส่ง</button></form>
+  </section>
+  <div id="respawn" class="hidden"></div>
+  <div id="overlay">
+    <h1 id="ovTitle">🐟 ยิงปลาบนบก</h1>
+    <p id="ovText">เล่นกับเพื่อนแบบเรียลไทม์ ปลา บอส กระสุน และไอเทมใช้สถานะร่วมกันจากเซิร์ฟเวอร์<br>จอยซ้าย = เดิน · ปุ่มแดง = ยิง · Enter = แชท<br>คอม: WASD/ลูกศร เดิน · เมาส์/Space ยิง · R รีโหลด</p>
+    <div id="joinFields">
+      <label for="nameInput">ชื่อผู้เล่น</label><input id="nameInput" maxlength="16" autocomplete="nickname" placeholder="ชื่อของคุณ">
+      <label for="roomInput">รหัสห้อง (บอกเพื่อนให้กรอกเหมือนกัน)</label><input id="roomInput" maxlength="8" autocomplete="off" placeholder="PUBLIC">
+    </div>
+    <p id="joinError"></p>
+    <button id="startBtn">เข้าห้องและเริ่มเกม</button>
+  </div>
+</div>
+<script>
+
+
+
+
+
+
+
+// ===== art.js (สไตล์วาดมือ/ทอปดาวน์) : พื้นดิน, ปลา, บอส, ผู้เล่น =====
+// ใช้แทนไฟล์ art.js เดิมได้ทั้งไฟล์ — ชื่อฟังก์ชัน/ตัวแปรเหมือนเดิมทุกอย่าง game.js ไม่ต้องแก้ (ยกเว้นลบโค้ดถังไฟ 3 บรรทัด ดูในแชท)
+const W = 360, H = 640, TOP = 46;
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d');
+ctx.setTransform(2, 0, 0, 2, 0, 0);
+const $ = id => document.getElementById(id);
+const rand = (a, b) => a + Math.random() * (b - a);
+const hsl = (h, s, l, a = 1) => `hsla(${Math.round(((h % 360) + 360) % 360)},${s}%,${Math.max(0, Math.min(100, l))}%,${a})`;
+const tri = (a, b, c, d, e, f) => { ctx.beginPath(); ctx.moveTo(a, b); ctx.lineTo(c, d); ctx.lineTo(e, f); ctx.closePath(); ctx.fill(); };
+const ell = (x, y, rx, ry, rot = 0) => { ctx.beginPath(); ctx.ellipse(x, y, rx, ry, rot, 0, 7); ctx.fill(); };
+const dot = (x, y, r) => { ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); };
+const eye = (x, y, r, pupil = '#111') => { ctx.fillStyle = '#fff'; dot(x, y, r); ctx.fillStyle = pupil; dot(x + r * .25, y, r * .55); };
+
+// ---------- ตัวช่วยวาดแบบมีมิติ (ไล่เฉด + เส้นขอบ) ----------
+function pbody(x, y, rx, ry, h, sat, l, rot = 0) {
+  const g = ctx.createRadialGradient(x - rx * .3, y - ry * .35, Math.min(rx, ry) * .1, x, y, Math.max(rx, ry) * 1.05);
+  g.addColorStop(0, hsl(h, sat, l + 24)); g.addColorStop(.55, hsl(h, sat, l)); g.addColorStop(1, hsl(h, sat, l - 20));
+  ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(x, y, rx, ry, rot, 0, 7); ctx.fill();
+  ctx.strokeStyle = hsl(h, sat, l - 32, .85); ctx.lineWidth = 1.5; ctx.stroke();
+}
+function pfin(pts, h, sat, l) {
+  ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+  ctx.closePath(); ctx.fillStyle = hsl(h, sat, l); ctx.fill();
+  ctx.strokeStyle = hsl(h, sat, l - 28, .9); ctx.lineWidth = 1.2; ctx.stroke();
+}
+function bigEye(x, y, r, iris = '#d01818') {
+  ctx.fillStyle = 'rgba(0,0,0,.25)'; dot(x + r * .12, y + r * .15, r * 1.05);
+  const g = ctx.createRadialGradient(x - r * .3, y - r * .3, r * .1, x, y, r);
+  g.addColorStop(0, '#fff'); g.addColorStop(1, '#d6dadd');
+  ctx.fillStyle = g; dot(x, y, r);
+  ctx.strokeStyle = 'rgba(0,0,0,.55)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.stroke();
+  ctx.fillStyle = iris; dot(x + r * .18, y, r * .58);
+  ctx.fillStyle = '#120606'; dot(x + r * .26, y, r * .3);
+  ctx.fillStyle = 'rgba(255,255,255,.92)'; dot(x - r * .05, y - r * .3, r * .16);
+}
+function scaleTex(rx, ry, sc, alpha) {
+  for (const [ox, oy, col] of [[0, 0, `rgba(0,0,0,${alpha})`], [-.7, -.8, `rgba(255,255,255,${alpha * .55})`]]) {
+    ctx.beginPath(); let row = 0;
+    for (let yy = -ry; yy <= ry; yy += sc * .8, row++)
+      for (let xx = -rx - (row % 2 ? sc * .5 : 0); xx <= rx; xx += sc) { ctx.moveTo(xx + sc * .5 + ox, yy + oy); ctx.arc(xx + ox, yy + oy, sc * .5, 0, Math.PI); }
+    ctx.strokeStyle = col; ctx.lineWidth = .8; ctx.stroke();
+  }
+}
+function clipEll(x, y, rx, ry, fn) { ctx.save(); ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, 7); ctx.clip(); fn(); ctx.restore(); }
+
+// ---------- พื้นดิน (วาดครั้งเดียวลงแคนวาสสำรอง) ----------
+const ground = document.createElement('canvas');
+ground.width = 720; ground.height = 1280;
+(function buildGround() {
+  const g = ground.getContext('2d');
+  g.scale(2, 2);
+  const R = (a, b) => a + Math.random() * (b - a);
+  const pick = a => a[(Math.random() * a.length) | 0];
+
+  const bg = g.createLinearGradient(0, 0, W, H);
+  bg.addColorStop(0, '#2d241d'); bg.addColorStop(.5, '#362b21'); bg.addColorStop(1, '#2a2119');
+  g.fillStyle = bg; g.fillRect(0, 0, W, H);
+  for (let i = 0; i < 70; i++) { // ด่างเข้ม/อ่อน
+    const x = R(0, W), y = R(0, H), r = R(25, 80), dark = Math.random() < .55;
+    const rg = g.createRadialGradient(x, y, 0, x, y, r);
+    rg.addColorStop(0, dark ? 'rgba(15,10,7,.28)' : 'rgba(120,95,65,.14)'); rg.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = rg; g.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+  const speck = ['#4d3c2c', '#1b1510', '#5e4a37', '#3a2d22', '#6b5640'];
+  for (let i = 0; i < 3200; i++) { g.globalAlpha = R(.35, .9); g.fillStyle = pick(speck); g.fillRect(R(0, W), R(0, H), R(.8, 2.4), R(.8, 2.2)); }
+  for (let p = 0; p < 28; p++) { // กลุ่มเม็ดทราย
+    const cx = R(0, W), cy = R(0, H), rr = R(15, 45);
+    for (let i = 0; i < 70; i++) {
+      const a = R(0, 6.283), d = Math.pow(Math.random(), .7) * rr;
+      g.globalAlpha = R(.4, .9); g.fillStyle = pick(['#9a8463', '#b49c73', '#7b6649', '#c4ab80']);
+      g.beginPath(); g.arc(cx + Math.cos(a) * d * 1.3, cy + Math.sin(a) * d, R(.5, 1.4), 0, 7); g.fill();
+    }
+  }
+  g.globalAlpha = 1;
+
+  function puddle(cx, cy, rw, rh) {
+    const n = 16, pts = [];
+    for (let i = 0; i < n; i++) { const a = i / n * 6.283, k = R(.78, 1.1); pts.push([cx + Math.cos(a) * rw * k, cy + Math.sin(a) * rh * k]); }
+    const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+    const path = () => {
+      g.beginPath(); const s0 = mid(pts[n - 1], pts[0]); g.moveTo(s0[0], s0[1]);
+      for (let i = 0; i < n; i++) { const c = pts[i], e = mid(pts[i], pts[(i + 1) % n]); g.quadraticCurveTo(c[0], c[1], e[0], e[1]); }
+      g.closePath();
+    };
+    g.save(); path(); g.lineWidth = 5; g.strokeStyle = 'rgba(12,9,7,.55)'; g.stroke(); g.restore();
+    g.save(); path();
+    const pg = g.createRadialGradient(cx - rw * .2, cy - rh * .2, 2, cx, cy, rw * 1.1);
+    pg.addColorStop(0, '#8a9297'); pg.addColorStop(.6, '#6a7176'); pg.addColorStop(1, '#4a5054');
+    g.fillStyle = pg; g.fill(); g.clip();
+    g.strokeStyle = 'rgba(225,232,236,.38)'; g.lineWidth = 1.3;
+    for (let k = 0; k < 4; k++) { g.beginPath(); g.ellipse(cx + rw * .05, cy, rw * (.2 + k * .17), rh * (.2 + k * .17), R(-.2, .2), R(0, 2), R(4, 6.2)); g.stroke(); }
+    g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = 1.6;
+    for (let k = 0; k < 4; k++) { const x = cx + R(-rw * .6, rw * .4), y = cy + R(-rh * .5, rh * .5); g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + 8, y - 3, x + R(14, 26), y + R(-2, 2)); g.stroke(); }
+    g.restore();
+    g.save(); path(); g.lineWidth = 1.5; g.strokeStyle = 'rgba(210,220,225,.35)'; g.stroke(); g.restore();
+  }
+  function root(x, y, ang, len, w, depth) {
+    const steps = Math.max(4, (len / 6) | 0); let px = x, py = y, a = ang;
+    g.lineCap = 'round';
+    for (let i = 0; i < steps; i++) {
+      a += R(-.35, .35); const nx = px + Math.cos(a) * len / steps, ny = py + Math.sin(a) * len / steps;
+      const lw = Math.max(.6, w * (1 - i / steps * .8));
+      g.strokeStyle = '#1c1510'; g.lineWidth = lw; g.beginPath(); g.moveTo(px, py); g.lineTo(nx, ny); g.stroke();
+      g.strokeStyle = '#4a3828'; g.lineWidth = lw * .4; g.beginPath(); g.moveTo(px - .6, py - .6); g.lineTo(nx - .6, ny - .6); g.stroke();
+      px = nx; py = ny;
+      if (depth > 0 && Math.random() < .22) root(px, py, a + (Math.random() < .5 ? -1 : 1) * R(.5, 1.1), len * R(.4, .65), w * .65, depth - 1);
+    }
+  }
+  function pebble(x, y, r, pal) {
+    g.fillStyle = 'rgba(0,0,0,.4)'; g.beginPath(); g.ellipse(x + r * .3, y + r * .4, r, r * .75, 0, 0, 7); g.fill();
+    const rot = R(0, 3), pg = g.createRadialGradient(x - r * .35, y - r * .35, r * .1, x, y, r * 1.05);
+    pg.addColorStop(0, pal[0]); pg.addColorStop(.55, pal[1]); pg.addColorStop(1, pal[2]);
+    g.fillStyle = pg; g.beginPath(); g.ellipse(x, y, r, r * .75, rot, 0, 7); g.fill();
+    g.fillStyle = 'rgba(255,255,255,.35)'; g.beginPath(); g.arc(x - r * .35, y - r * .3, r * .18, 0, 7); g.fill();
+  }
+  function leaf(x, y, len, rot, c1, c2) {
+    g.save(); g.translate(x, y); g.rotate(rot);
+    g.fillStyle = 'rgba(0,0,0,.3)'; g.beginPath(); g.ellipse(1.5, 2, len * .45, len, 0, 0, 7); g.fill();
+    const lg = g.createLinearGradient(-len * .4, 0, len * .4, 0); lg.addColorStop(0, c1); lg.addColorStop(1, c2);
+    g.fillStyle = lg; g.beginPath(); g.moveTo(0, -len); g.quadraticCurveTo(len * .6, -len * .2, 0, len); g.quadraticCurveTo(-len * .6, -len * .2, 0, -len); g.fill();
+    g.strokeStyle = 'rgba(0,0,0,.4)'; g.lineWidth = .8; g.beginPath(); g.moveTo(0, -len); g.lineTo(0, len);
+    for (let i = -2; i <= 2; i++) { g.moveTo(0, i * len * .3); g.lineTo(len * .3, i * len * .3 - len * .15); g.moveTo(0, i * len * .3); g.lineTo(-len * .3, i * len * .3 - len * .15); }
+    g.stroke(); g.restore();
+  }
+  function tuft(x, y, n, h) {
+    g.fillStyle = 'rgba(0,0,0,.28)'; g.beginPath(); g.ellipse(x + 2, y + 3, h * .35, h * .12, 0, 0, 7); g.fill();
+    for (let i = 0; i < n; i++) {
+      const ba = R(-.7, .7) - Math.PI / 2, bx = x + R(-4, 4), l = h * R(.6, 1);
+      const tx = bx + Math.cos(ba) * l, ty = y + Math.sin(ba) * l, cx = bx + Math.cos(ba) * l * .5 + R(-4, 4), cy = y + Math.sin(ba) * l * .5;
+      const gr = g.createLinearGradient(bx, y, tx, ty); gr.addColorStop(0, '#27401a'); gr.addColorStop(1, pick(['#8aae4c', '#6f9640', '#a3c35c']));
+      g.fillStyle = gr; g.beginPath(); g.moveTo(bx - 1.6, y); g.quadraticCurveTo(cx - 1.2, cy, tx, ty); g.quadraticCurveTo(cx + 1.2, cy, bx + 1.6, y); g.fill();
+    }
+  }
+
+  puddle(R(70, 130), R(300, 420), R(50, 70), R(24, 34));
+  puddle(R(230, 300), R(500, 580), R(30, 44), R(16, 24));
+  puddle(R(200, 320), R(130, 190), R(20, 30), R(10, 16));
+  for (let i = 0; i < 7; i++) root(R(0, W), R(TOP, H), R(0, 6.283), R(60, 120), R(2.5, 4), 3);
+  const pals = [['#c9ae83', '#a88a5f', '#6e5638'], ['#b0652e', '#8a4a22', '#552c14'], ['#9aa0a4', '#6f767b', '#3f4549'], ['#7d93a8', '#566a7e', '#2e3b49'], ['#d8cfc0', '#b3a893', '#6f6656']];
+  for (let i = 0; i < 100; i++) pebble(R(0, W), R(0, H), R(1.4, 3.6), pick(pals));
+  for (let i = 0; i < 22; i++) pebble(R(0, W), R(TOP, H), R(4, 7), pick(pals));
+  const leafCols = [['#6c8a36', '#4b6424'], ['#7a5230', '#5a3a20'], ['#a5622a', '#7a4418'], ['#8a7348', '#6a5632']];
+  for (let i = 0; i < 16; i++) { const c = pick(leafCols); leaf(R(0, W), R(TOP, H), R(6, 11), R(0, 6.283), c[0], c[1]); }
+  for (let i = 0; i < 14; i++) tuft(R(10, W - 10), R(TOP + 30, H - 10), (R(8, 13)) | 0, R(26, 52));
+  for (let i = 0; i < 24; i++) tuft(R(0, W), R(TOP + 15, H), (R(4, 7)) | 0, R(12, 22));
+  const v = g.createRadialGradient(W / 2, H / 2, 160, W / 2, H / 2, 430);
+  v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,.6)');
+  g.fillStyle = v; g.fillRect(0, 0, W, H);
+})();
+
+// ---------- ปลาธรรมดา (ตัวอ้วนมีเกล็ด ตาโตแดง ครีบสีตัดกัน) ----------
+function fishHue(f) { if (f._h === undefined) { const m = /hsla\((\d+)/.exec(f.c1); f._h = m ? +m[1] : 130; } return f._h; }
+function drawFish(f) {
+  const s = f.size, w = Math.sin(f.ph), h = f.elite ? 45 : fishHue(f), sat = f.elite ? 85 : 62, bl = f.elite ? 50 : 42;
+  const rx = f.puffer ? s * .95 : s * 1.05, ry = f.puffer ? s * .95 : s * .78;
+  const fh = h + 160; // สีครีบ (ตัดกับตัว)
+  ctx.save(); ctx.translate(f.x, f.y);
+  if (f.elite) { ctx.fillStyle = `rgba(255,210,63,${.16 + .08 * Math.sin(f.ph * .6)})`; dot(0, 0, s * 2); }
+  ctx.rotate(f.ang);
+  ctx.fillStyle = 'rgba(0,0,0,.35)'; ell(3, 4, rx * 1.05, ry * .95);
+  // ครีบเดิน 4 ข้าง
+  for (const side of [-1, 1]) for (const k of [.38, -.45]) {
+    const sw = Math.sin(f.ph + (k > 0 ? 0 : 3.14) + (side > 0 ? 1.5 : 0));
+    ctx.save(); ctx.translate(k * s, side * ry * .8); ctx.rotate(side * (.15 + sw * .4));
+    ctx.fillStyle = hsl(h + 30, 45, 74); ell(0, side * s * .3, s * .17, s * (k > 0 ? .34 : .28));
+    ctx.strokeStyle = hsl(h + 30, 45, 40, .8); ctx.lineWidth = 1; ctx.beginPath(); ctx.ellipse(0, side * s * .3, s * .17, s * (k > 0 ? .34 : .28), 0, 0, 7); ctx.stroke();
+    ctx.restore();
+  }
+  // หาง
+  const tg = ctx.createLinearGradient(-s * .8, 0, -s * 1.8, 0); tg.addColorStop(0, hsl(h, sat, bl - 4)); tg.addColorStop(1, hsl(h + 40, 70, 62));
+  ctx.fillStyle = tg; ctx.strokeStyle = hsl(h, sat, bl - 28, .85); ctx.lineWidth = 1.2; ctx.beginPath();
+  if (f.tail === 0) { ctx.moveTo(-s * .8, 0); ctx.lineTo(-s * 1.7, -s * .7 + w * s * .3); ctx.lineTo(-s * 1.7, s * .7 + w * s * .3); }
+  else if (f.tail === 1) { ctx.moveTo(-s * .8, 0); ctx.lineTo(-s * 1.8, -s * .8 + w * s * .3); ctx.lineTo(-s * 1.35, 0); ctx.lineTo(-s * 1.8, s * .8 + w * s * .3); }
+  else { ctx.moveTo(-s * .8, 0); ctx.quadraticCurveTo(-s * 1.5, -s * .95 + w * s * .3, -s * 1.8, w * s * .3); ctx.quadraticCurveTo(-s * 1.5, s * .95 + w * s * .3, -s * .8, 0); }
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  // หนามปักเป่า
+  if (f.puffer) {
+    ctx.fillStyle = hsl(fh, 45, 35);
+    for (let i = 0; i < 12; i++) { const a = i / 12 * 6.283 + .2; tri(Math.cos(a - .15) * s * .9, Math.sin(a - .15) * s * .9, Math.cos(a) * s * 1.35, Math.sin(a) * s * 1.35, Math.cos(a + .15) * s * .9, Math.sin(a + .15) * s * .9); }
+  }
+  // ลำตัว + เกล็ด + ลาย
+  pbody(0, 0, rx, ry, h, sat, bl);
+  ctx.save(); ctx.beginPath(); ctx.ellipse(0, 0, rx, ry, 0, 0, 7); ctx.clip();
+  scaleTex(rx, ry, Math.max(3.2, s * .3), .2);
+  if (f.pattern === 0) { ctx.fillStyle = hsl(h + 15, 50, 72, .3); ell(s * .1, s * .15, rx * .75, ry * .4); }
+  else if (f.pattern === 1) { ctx.fillStyle = hsl(fh, 50, 25, .35); for (let i = -2; i <= 2; i++) ctx.fillRect(i * s * .38 - s * .07, -s, s * .16, s * 2); }
+  else if (f.pattern === 2) { ctx.fillStyle = hsl(fh, 50, 25, .4); for (let i = 0; i < 7; i++) dot(Math.sin(i * 2.3) * s * .65, Math.cos(i * 1.7) * ry * .55, s * .12); }
+  else { ctx.fillStyle = hsl(fh, 50, 25, .35); ctx.fillRect(-s * 1.1, -s, s * .75, s * 2); }
+  ctx.restore();
+  ctx.fillStyle = 'rgba(255,255,255,.28)'; ell(-s * .25, -ry * .5, s * .45, s * .13, -.35);
+  // ครีบหลัง (ม่วงตัดกับตัว)
+  if (!f.puffer) {
+    const fg = ctx.createLinearGradient(0, -ry * 1.3, 0, 0); fg.addColorStop(0, hsl(fh, 55, 55)); fg.addColorStop(1, hsl(fh, 55, 32));
+    ctx.fillStyle = fg; ctx.strokeStyle = hsl(fh, 55, 22, .9); ctx.lineWidth = 1.1;
+    const leafFin = sg => { ctx.beginPath(); ctx.moveTo(s * .4, sg * ry * .3); ctx.quadraticCurveTo(0, sg * ry * 1.45, -s * .9, sg * ry * .5); ctx.quadraticCurveTo(-s * .2, sg * ry * .4, s * .4, sg * ry * .3); ctx.fill(); ctx.stroke(); };
+    if (f.fin === 0) leafFin(-1);
+    else if (f.fin === 1) for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.moveTo(-s * .55 + i * s * .45, -ry * .35); ctx.lineTo(-s * .4 + i * s * .45, -ry * 1.1); ctx.lineTo(-s * .25 + i * s * .45, -ry * .35); ctx.fill(); ctx.stroke(); }
+    else { leafFin(-1); leafFin(1); }
+  }
+  // ปาก + ตาโตแดง
+  ctx.strokeStyle = hsl(h, 60, 22); ctx.lineWidth = 1.4; ctx.beginPath(); ctx.arc(rx * .92, 0, s * .2, -1.1, 1.1); ctx.stroke();
+  bigEye(s * .6, -ry * .55, Math.max(2.6, s * .34)); bigEye(s * .6, ry * .55, Math.max(2.6, s * .34));
+  ctx.restore();
+  if (f.elite) {
+    const cx = f.x, cy = f.y - s - 6;
+    ctx.fillStyle = '#ffd23f'; ctx.fillRect(cx - 7, cy, 14, 4);
+    tri(cx - 7, cy, cx - 7, cy - 7, cx - 2, cy); tri(cx - 3, cy, cx, cy - 9, cx + 3, cy); tri(cx + 2, cy, cx + 7, cy - 7, cx + 7, cy);
+  }
+  if (f.max > 2) {
+    const by = f.y - s - (f.elite ? 19 : 10);
+    ctx.fillStyle = 'rgba(0,0,0,.65)'; ctx.fillRect(f.x - s, by, s * 2, 4);
+    ctx.fillStyle = f.elite ? '#ffd23f' : '#e44'; ctx.fillRect(f.x - s, by, s * 2 * Math.max(0, f.hp) / f.max, 4);
+  }
+}
+
+// ---------- บอส 7 แบบ ----------
+const BOSS_ART = {
+  angler(s, h, ph, t) { // ปลาตกเบ็ด
+    const wag = Math.sin(ph);
+    pfin([[-s * .8, 0], [-s * 1.7, -s * .75 + wag * s * .25], [-s * 1.5, 0], [-s * 1.7, s * .75 + wag * s * .25]], h, 35, 24);
+    pfin([[-s * .3, -s * .6], [-s * .1, -s * 1.2], [s * .35, -s * .6]], h, 35, 32); pfin([[-s * .3, s * .6], [-s * .1, s * 1.2], [s * .35, s * .6]], h, 35, 32);
+    pbody(0, 0, s, s * .8, h, 30, 24);
+    clipEll(0, 0, s, s * .8, () => { scaleTex(s, s * .8, s * .17, .3); ctx.fillStyle = hsl(h + 70, 85, 62, .75); for (let i = 0; i < 9; i++) dot(-s * .7 + Math.sin(i * 2.1) * s * .4, Math.cos(i * 1.3) * s * .55, s * .045); });
+    ctx.fillStyle = '#2a0a0a'; ctx.beginPath(); ctx.ellipse(s * .5, 0, s * .5, s * .6, 0, -Math.PI / 2, Math.PI / 2); ctx.fill();
+    ctx.fillStyle = '#f2f2ea';
+    for (let i = -4; i <= 4; i++) { const a = i * .33, x = s * .5 + Math.cos(a) * s * .5, y = Math.sin(a) * s * .6; tri(x, y - s * .06, x - s * .2, y, x, y + s * .06); }
+    ctx.strokeStyle = hsl(h, 30, 40); ctx.lineWidth = Math.max(2, s * .06);
+    ctx.beginPath(); ctx.moveTo(s * .1, -s * .7); ctx.quadraticCurveTo(s * .9, -s * 1.9, s * 1.5, -s * 1.1); ctx.stroke();
+    const g = ctx.createRadialGradient(s * 1.5, -s * 1.1, 1, s * 1.5, -s * 1.1, s * .5);
+    g.addColorStop(0, 'rgba(255,255,160,1)'); g.addColorStop(1, 'rgba(255,200,40,0)');
+    ctx.fillStyle = g; dot(s * 1.5, -s * 1.1, s * (.45 + .06 * Math.sin(t * 6)));
+    ctx.fillStyle = '#fff6a0'; dot(s * 1.5, -s * 1.1, s * .12);
+    bigEye(-s * .05, -s * .5, s * .16, '#e8c010'); bigEye(-s * .05, s * .5, s * .16, '#e8c010');
+  },
+  puffer(s, h, ph, t) { // ปักเป่ายักษ์
+    const p = 1 + Math.sin(t * 3) * .05, wag = Math.sin(ph);
+    ctx.fillStyle = hsl(h + 20, 45, 30);
+    for (let i = 0; i < 22; i++) {
+      const a = i / 22 * 6.283, r0 = s * .95 * p, r1 = s * (1.38 + .1 * Math.sin(t * 4 + i)) * p;
+      tri(Math.cos(a - .11) * r0, Math.sin(a - .11) * r0, Math.cos(a) * r1, Math.sin(a) * r1, Math.cos(a + .11) * r0, Math.sin(a + .11) * r0);
+    }
+    pfin([[-s * .9, 0], [-s * 1.5, -s * .4 + wag * s * .15], [-s * 1.5, s * .4 + wag * s * .15]], h, 45, 40);
+    pbody(0, 0, s * p, s * p, h, 65, 50);
+    clipEll(0, 0, s * p, s * p, () => {
+      scaleTex(s, s, s * .2, .22);
+      ctx.fillStyle = hsl(h, 55, 85, .4); ell(s * .12, 0, s * .72, s * .58);
+      ctx.fillStyle = hsl(h + 160, 50, 28, .55); for (let i = 0; i < 10; i++) dot(-s * .55 + Math.sin(i * 2.7) * s * .3, Math.cos(i * 1.9) * s * .65, s * .1);
+    });
+    ctx.fillStyle = '#a33'; ell(s * .98, 0, s * .1, s * .16);
+    bigEye(s * .55, -s * .45, s * .22); bigEye(s * .55, s * .45, s * .22);
+  },
+  sword(s, h, ph) { // ปลาดาบ
+    const wag = Math.sin(ph) * s * .25;
+    pfin([[-s * 1.2, 0], [-s * 2.1, -s * .85 + wag], [-s * 1.7, 0], [-s * 2.1, s * .85 + wag]], h, 50, 32);
+    pfin([[0, s * .35], [-s * .5, s * 1.05], [s * .5, s * .4]], h, 50, 34); pfin([[0, -s * .35], [-s * .5, -s * 1.05], [s * .5, -s * .4]], h, 50, 34);
+    pbody(0, 0, s * 1.3, s * .48, h, 55, 44);
+    clipEll(0, 0, s * 1.3, s * .48, () => { scaleTex(s * 1.3, s * .5, s * .17, .22); ctx.fillStyle = hsl(h, 40, 80, .4); ell(s * .1, s * .15, s * 1.1, s * .2); ctx.fillStyle = hsl(h + 30, 60, 25, .4); for (let i = 0; i < 5; i++) ctx.fillRect(-s * 1 + i * s * .35, -s * .5, s * .09, s); });
+    const sg = ctx.createLinearGradient(0, -s * .13, 0, s * .13); sg.addColorStop(0, '#f2f6f9'); sg.addColorStop(1, '#8c9aa6');
+    ctx.fillStyle = sg; tri(s * 1.15, -s * .13, s * 2.7, 0, s * 1.15, s * .13);
+    ctx.strokeStyle = 'rgba(0,0,0,.45)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(s * 1.15, -s * .13); ctx.lineTo(s * 2.7, 0); ctx.lineTo(s * 1.15, s * .13); ctx.closePath(); ctx.stroke();
+    bigEye(s * .85, -s * .27, s * .13); bigEye(s * .85, s * .27, s * .13);
+  },
+  shark(s, h, ph) { // ฉลาม
+    const wag = Math.sin(ph) * s * .3;
+    pfin([[-s * 1.2, 0], [-s * 2.1, -s * .85 + wag], [-s * 1.65, 0], [-s * 2.1, s * .85 + wag]], h, 15, 36);
+    pfin([[s * .1, s * .45], [-s * .7, s * 1.3], [-s * .5, s * .4]], h, 15, 38); pfin([[s * .1, -s * .45], [-s * .7, -s * 1.3], [-s * .5, -s * .4]], h, 15, 38);
+    pbody(0, 0, s * 1.3, s * .56, h, 14, 46);
+    clipEll(0, 0, s * 1.3, s * .56, () => { scaleTex(s * 1.3, s * .56, s * .18, .18); ctx.fillStyle = hsl(h, 10, 85, .55); ell(s * .15, s * .22, s * 1.05, s * .3); ctx.fillStyle = hsl(h, 14, 22, .5); ell(-s * .2, -s * .1, s * .8, s * .1); });
+    ctx.strokeStyle = hsl(h, 14, 22); ctx.lineWidth = 2;
+    for (let i = 0; i < 3; i++) for (const sg of [-1, 1]) { ctx.beginPath(); ctx.moveTo(s * (.3 - i * .12), sg * s * .4); ctx.lineTo(s * (.22 - i * .12), sg * s * .2); ctx.stroke(); }
+    ctx.fillStyle = '#f4f4ee';
+    for (let i = -5; i <= 5; i++) { const a = i * .17, x = Math.cos(a) * s * 1.3, y = Math.sin(a) * s * .56; tri(x, y - s * .05, x - s * .16, y * .8, x, y + s * .05); }
+    bigEye(s * .85, -s * .32, s * .12, '#222'); bigEye(s * .85, s * .32, s * .12, '#222');
+  },
+  eel(s, h, ph, t) { // งูปลาไฟฟ้า
+    const N = 10, sp = s * .5;
+    for (let i = N - 1; i >= 0; i--) {
+      const x = -i * sp, y = Math.sin(ph * .8 - i * .55) * s * .45 * (i / N + .15), r = s * (.8 - i * .045);
+      pbody(x, y, r, r, h, 65, i % 2 ? 46 : 38);
+      ctx.fillStyle = hsl(h + 60, 90, 72); dot(x, y - r * .45, r * .17);
+      if (i % 3 === 1) { ctx.strokeStyle = '#fff3a0'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x, y - r); ctx.lineTo(x + Math.sin(t * 25 + i) * 6, y - r - s * .25); ctx.lineTo(x - 3, y - r - s * .4); ctx.stroke(); }
+    }
+    ctx.fillStyle = '#2a0a14'; ell(s * .55, 0, s * .2, s * .24);
+    bigEye(s * .25, -s * .42, s * .17, '#e88000'); bigEye(s * .25, s * .42, s * .17, '#e88000');
+  },
+  piranha(s, h, ph) { // ราชาปิรันย่า
+    const wag = Math.sin(ph) * s * .25;
+    pfin([[-s * .8, 0], [-s * 1.6, -s * .7 + wag], [-s * 1.6, s * .7 + wag]], h, 70, 32);
+    pfin([[-s * .1, s * .6], [-s * .6, s * 1.1], [s * .3, s * .65]], h, 70, 36); pfin([[-s * .1, -s * .6], [-s * .6, -s * 1.1], [s * .3, -s * .65]], h, 70, 36);
+    pbody(0, 0, s, s * .74, h, 75, 44);
+    clipEll(0, 0, s, s * .74, () => { scaleTex(s, s * .74, s * .17, .24); ctx.fillStyle = hsl(h + 15, 80, 70, .5); ell(s * .05, s * .12, s * .75, s * .35); });
+    ctx.fillStyle = '#2a0808'; ctx.beginPath(); ctx.ellipse(s * .6, 0, s * .4, s * .38, 0, -1.4, 1.4); ctx.fill();
+    ctx.fillStyle = '#f4f4ee';
+    for (let i = -3; i <= 3; i++) { const y = i * s * .1; tri(s * .84, y - s * .05, s * .62, y, s * .84, y + s * .05); }
+    ctx.strokeStyle = '#222'; ctx.lineWidth = Math.max(2, s * .07);
+    ctx.beginPath(); ctx.moveTo(s * .15, -s * .64); ctx.lineTo(s * .5, -s * .3); ctx.moveTo(s * .15, s * .64); ctx.lineTo(s * .5, s * .3); ctx.stroke();
+    bigEye(s * .35, -s * .45, s * .16, '#a00'); bigEye(s * .35, s * .45, s * .16, '#a00');
+    const cg = ctx.createLinearGradient(-s * .35, 0, -s * .62, 0); cg.addColorStop(0, '#ffe27a'); cg.addColorStop(1, '#d9a000');
+    ctx.fillStyle = cg; ctx.fillRect(-s * .35, -s * .32, s * .14, s * .64);
+    for (let i = -1; i <= 1; i++) tri(-s * .35, i * s * .22 - s * .1, -s * .62, i * s * .22, -s * .35, i * s * .22 + s * .1);
+    ctx.fillStyle = '#e33'; dot(-s * .28, 0, s * .05);
+  },
+  manta(s, h, ph, t) { // ปลากระเบน
+    const flap = Math.sin(ph * .7) * .25, wag = Math.sin(ph) * s * .5;
+    ctx.strokeStyle = hsl(h, 40, 25); ctx.lineWidth = Math.max(3, s * .08); ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(-s * .5, 0); ctx.quadraticCurveTo(-s * 1.2, wag, -s * 2.1, -wag * .6); ctx.stroke();
+    for (const sg of [-1, 1]) {
+      const wg = ctx.createLinearGradient(0, 0, 0, sg * s * 1.5); wg.addColorStop(0, hsl(h, 45, 42)); wg.addColorStop(1, hsl(h, 45, 24));
+      ctx.fillStyle = wg; ctx.beginPath(); ctx.moveTo(s * .6, 0); ctx.quadraticCurveTo(s * .1, sg * s * (1.6 + flap), -s * 1.0, sg * s * (1.3 + flap));
+      ctx.quadraticCurveTo(-s * .4, sg * s * .4, -s * .4, 0); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = hsl(h, 45, 15, .8); ctx.lineWidth = 1.2; ctx.stroke();
+      ctx.fillStyle = hsl(h, 50, 60, .4); ell(-s * .1, sg * s * .75, s * .35, s * .12, sg * .5);
+      ctx.fillStyle = hsl(h, 40, 85); dot(-s * .3, sg * s * .55, s * .06); dot(-s * .55, sg * s * .85, s * .05);
+      pfin([[s * .6, sg * s * .2], [s * 1.05, sg * s * .34], [s * .7, sg * s * .02]], h, 45, 32);
+    }
+    pbody(0, 0, s * .72, s * .5, h, 45, 44);
+    clipEll(0, 0, s * .72, s * .5, () => scaleTex(s * .72, s * .5, s * .16, .2));
+    bigEye(s * .5, -s * .27, s * .12); bigEye(s * .5, s * .27, s * .12);
+  }
+};
+
+function drawBoss(b, time) {
+  const s = b.size;
+  ctx.save(); ctx.translate(b.x, b.y);
+  if (b.enraged) { ctx.fillStyle = `rgba(255,40,40,${.12 + .06 * Math.sin(time * 10)})`; dot(0, 0, s * 1.7); }
+  ctx.fillStyle = 'rgba(0,0,0,.35)'; ell(6, s * .32, s * 1.1, s * .7);
+  ctx.rotate(b.ang);
+  BOSS_ART[b.design](s, b.hue, b.ph, time);
+  if (b.hit > 0) { ctx.fillStyle = `rgba(255,255,255,${Math.min(.6, b.hit * 6)})`; ell(0, 0, s * 1.1, s * .85); }
+  ctx.restore();
+}
+
+// ---------- ผู้เล่น (หมวกเกราะมองจากด้านบน + วงเวทย์เรืองแสงสีเขียว) ----------
+function drawPlayer(P, time) {
+  const x = P.x, y = P.y, R = P.r + 11;
+  if (P.buffs.god) { ctx.fillStyle = `rgba(255,230,100,${.25 + .12 * Math.sin(time * 12)})`; dot(x, y, R + 6); }
+  if (P.buffs.berserk) { ctx.fillStyle = `rgba(255,70,40,${.25 + .1 * Math.sin(time * 14)})`; dot(x, y, R + 3); }
+  if (P.buffs.vamp) { ctx.fillStyle = 'rgba(190,60,220,.22)'; dot(x, y, R + 2); }
+  ctx.fillStyle = 'rgba(0,0,0,.38)'; ell(x + 2, y + 4, P.r + 4, P.r * .85);
+  // วงเวทย์เรืองแสง
+  ctx.save(); ctx.translate(x, y);
+  ctx.fillStyle = 'rgba(50,255,110,.08)'; dot(0, 0, R);
+  ctx.shadowColor = '#35ff74'; ctx.shadowBlur = 9;
+  ctx.strokeStyle = '#3cf577'; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.arc(0, 0, R, 0, 7); ctx.stroke();
+  ctx.lineWidth = 1.3; ctx.setLineDash([7, 4]); ctx.lineDashOffset = -time * 14; ctx.beginPath(); ctx.arc(0, 0, R - 4.5, 0, 7); ctx.stroke();
+  ctx.setLineDash([]); ctx.shadowBlur = 0;
+  ctx.strokeStyle = 'rgba(140,255,175,.6)'; ctx.lineWidth = 1; ctx.beginPath();
+  for (let i = 0; i < 18; i++) { const a = i / 18 * 6.283 - time * .5, l = i % 2 ? 2.5 : 4; ctx.moveTo(Math.cos(a) * (R - 1.5), Math.sin(a) * (R - 1.5)); ctx.lineTo(Math.cos(a) * (R - 1.5 - l), Math.sin(a) * (R - 1.5 - l)); }
+  ctx.stroke(); ctx.restore();
+  if (P.armor > 0) { ctx.strokeStyle = `rgba(130,195,255,${.4 + .5 * P.armor / 100})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, P.r + 3, 0, 7); ctx.stroke(); }
+  ctx.save(); ctx.translate(x, y); ctx.rotate(P.aim);
+  // ปืน (ลำกล้องโลหะ มีรูระบายความร้อน)
+  const rpg = P.weapon && P.weapon.key === 'rpg', bw = rpg ? 5.5 : 4;
+  const bg = ctx.createLinearGradient(0, -bw, 0, bw); bg.addColorStop(0, '#2b2f32'); bg.addColorStop(.45, '#b6bcc1'); bg.addColorStop(1, '#4a5055');
+  ctx.fillStyle = bg; ctx.fillRect(7, -bw, 23, bw * 2);
+  ctx.strokeStyle = 'rgba(0,0,0,.6)'; ctx.lineWidth = 1; ctx.strokeRect(7, -bw, 23, bw * 2);
+  ctx.fillStyle = '#3a3f43'; ctx.fillRect(20, -bw - 1, 11, bw * 2 + 2);
+  ctx.fillStyle = '#111'; for (let i = 0; i < 4; i++) { dot(22 + i * 2.6, -bw * .35, .8); dot(22 + i * 2.6, bw * .35, .8); }
+  if (P.weapon) { ctx.fillStyle = '#ffb300'; ctx.fillRect(13, -bw, 3, bw * 2); }
+  if (P.flash > 0) { ctx.fillStyle = '#ffb800'; tri(31, 0, 44, -6, 39, 0); tri(31, 0, 44, 6, 39, 0); ctx.fillStyle = '#fff3b0'; tri(31, 0, 38, -3, 36, 0); }
+  // ไหล่ + ลำตัวเกราะสีเขียวมะกอก
+  for (const sg of [-1, 1]) { ctx.fillStyle = '#3f4a2a'; ell(-1, sg * (P.r - 1), 6, 4); ctx.strokeStyle = '#1d2412'; ctx.lineWidth = 1; ctx.beginPath(); ctx.ellipse(-1, sg * (P.r - 1), 6, 4, 0, 0, 7); ctx.stroke(); }
+  const tg = ctx.createRadialGradient(-4, -4, 2, 0, 0, P.r + 3); tg.addColorStop(0, '#7f8f52'); tg.addColorStop(.6, '#56673a'); tg.addColorStop(1, '#2f3a20');
+  ctx.fillStyle = tg; dot(0, 0, P.r + 1); ctx.strokeStyle = '#1d2412'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(0, 0, P.r + 1, 0, 7); ctx.stroke();
+  // หมวกเกราะ
+  const hg = ctx.createRadialGradient(-3, -3, 1, 0, 0, 11); hg.addColorStop(0, '#e6d8ae'); hg.addColorStop(.6, '#b2a177'); hg.addColorStop(1, '#6f6446');
+  ctx.fillStyle = hg; dot(0, 0, 10.5); ctx.strokeStyle = '#3c3523'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(0, 0, 10.5, 0, 7); ctx.stroke();
+  const vg = ctx.createLinearGradient(-6, -8, 6, 8); vg.addColorStop(0, '#4a433a'); vg.addColorStop(1, '#1e1a16');
+  ctx.fillStyle = vg; ell(1.5, 0, 7, 8.2);
+  ctx.fillStyle = '#c9b88a'; ctx.fillRect(-8, -1.5, 16, 3); ctx.fillRect(-5, -8, 2.8, 16);
+  ctx.strokeStyle = '#3c3523'; ctx.lineWidth = .7; ctx.strokeRect(-8, -1.5, 16, 3);
+  if (P.hurt > .3) { ctx.fillStyle = 'rgba(255,255,255,.6)'; dot(0, 0, P.r + 2); }
+  else if (P.poison > 0) { ctx.fillStyle = 'rgba(100,220,60,.3)'; dot(0, 0, P.r + 2); }
+  ctx.restore();
+}
+
+
+
+
+
+
+</script>
+<script src="/client.js"></script>
+</body>
+</html>
