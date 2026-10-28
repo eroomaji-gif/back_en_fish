@@ -92,7 +92,7 @@ canvas { width: 100%; height: 100%; display: block; }
 const W = 360, H = 640, TOP = 46;
 const cv = document.getElementById('c');
 const ctx = cv.getContext('2d');
-ctx.setTransform(2, 0, 0, 2, 0, 0);
+ctx.setTransform(1.5, 0, 0, 1.5, 0, 0);
 const $ = id => document.getElementById(id);
 const rand = (a, b) => a + Math.random() * (b - a);
 const hsl = (h, s, l, a = 1) => `hsla(${Math.round(((h % 360) + 360) % 360)},${s}%,${Math.max(0, Math.min(100, l))}%,${a})`;
