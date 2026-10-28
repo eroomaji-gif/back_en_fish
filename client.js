@@ -479,10 +479,12 @@ function draw() {
     if (banner.sub) { ctx.font = 'bold 14px sans-serif'; ctx.strokeText(banner.sub, W / 2, H * .36 + 24); ctx.fillStyle = '#fff'; ctx.fillText(banner.sub, W / 2, H * .36 + 24); }
     ctx.globalAlpha = 1;
   }
-  $('hp').textContent = `❤️ ${Math.ceil(local?.hp ?? 100)}${local?.armor > 0 ? ` 🛡️${Math.ceil(local.armor)}` : ''}`;
-  $('ammo').textContent = `${local?.weapon?.key === 'rpg' ? '🚀' : '🔫'} ${local?.weapon || local?.buffs?.inf ? '∞' : local?.reloadT > 0 ? '...' : local?.ammo ?? MAG}`;
-  $('score').textContent = `SCORE: ${world.score}`;
-  $('wave').textContent = `WAVE: ${world.wave}`;
+    const hpT = `❤️ ${Math.ceil(local?.hp ?? 100)}${local?.armor > 0 ? ` 🛡️${Math.ceil(local.armor)}` : ''}`, ammoT = `${local?.weapon?.key === 'rpg' ? '🚀' : '🔫'} ${local?.weapon || local?.buffs?.inf ? '∞' : local?.reloadT > 0 ? '...' : local?.ammo ?? MAG}`;
+  const scoreT = `SCORE: ${world.score}`, waveT = `WAVE: ${world.wave}`;
+  if (hpT !== lastHud.hp) $('hp').textContent = lastHud.hp = hpT;
+  if (ammoT !== lastHud.ammo) $('ammo').textContent = lastHud.ammo = ammoT;
+  if (scoreT !== lastHud.score) $('score').textContent = lastHud.score = scoreT;
+  if (waveT !== lastHud.wave) $('wave').textContent = lastHud.wave = waveT;
   const showRespawn = local && !local.alive;
   $('respawn').classList.toggle('hidden', !showRespawn);
   if (showRespawn) $('respawn').textContent = `เกิดใหม่ใน ${Math.ceil(local.respawnT)} วินาที`;
