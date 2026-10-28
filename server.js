@@ -56,18 +56,24 @@ setInterval(() => {
 io.on('connection', (socket) => {
   console.log(`[+] ผู้เล่นเชื่อมต่อเข้ามาแล้ว ID: ${socket.id}`);
 
-  // กำหนดค่าเริ่มต้นของผู้เล่นใหม่
+  // สุ่มตำแหน่งเกิดซ้าย-ขวาเล็กน้อยอัตโนมัติ เพื่อไม่ให้ตัวละครทับกันเวลาคนอื่นแจมเข้ามา
+  let randomX = 180 + (Object.keys(players).length * 50) % 400;
+
+  // กำหนดค่าเริ่มต้น (เล่นคนเดียวได้ทันทีโดยไม่ต้องรอใคร)
   players[socket.id] = {
-    x: 180,
+    x: randomX,
     y: 1100,
     aim: 0,
     hp: 100
   };
 
-  // รับพิกัดและการเคลื่อนไหวจากผู้เล่น
+  // รับพิกัดและการเคลื่อนไหวจากผู้เล่นแบบเรียลไทม์
   socket.on('player-move', (data) => {
     if (players[socket.id]) {
-      players[socket.id] = data;
+      players[socket.id].x = data.x;
+      players[socket.id].y = data.y;
+      players[socket.id].aim = data.aim;
+      players[socket.id].hp = data.hp;
     }
   });
 
