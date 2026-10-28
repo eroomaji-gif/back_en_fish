@@ -9,7 +9,7 @@ const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT) || 3000;
 const W = 360, H = 640, TOP = 46, MAG = 30;
 const STEP = 1 / 30, SNAPSHOT_STEP = 1 / 20;
-const MAX_PLAYERS = 8, MAX_FISH = 64, MAX_BULLETS = 240;
+const MAX_PLAYERS = 4, MAX_FISH = 40, MAX_BULLETS = 150;
 const TYPES = {
   normal: { hp: 2, sp: 45, size: 13, pts: 10, dmg: 8 },
   fast: { hp: 1, sp: 90, size: 9, pts: 15, dmg: 6 },
