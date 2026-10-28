@@ -4,11 +4,9 @@ const { Server } = require('socket.io');
 const cors = require('cors');
 
 const app = express();
-
-// อนุญาตให้หน้าเว็บเกมทุกที่สามารถเข้าถึงและรับส่งข้อมูล Socket ได้
 app.use(cors());
 
-// เส้นทางสำหรับเช็คว่าเซิร์ฟเวอร์ยังทำงานอยู่ไหม
+// เส้นทางเช็คสถานะเซิร์ฟเวอร์
 app.get('/', (req, res) => {
   res.send('Fish Game Server is Online!');
 });
@@ -16,45 +14,85 @@ app.get('/', (req, res) => {
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "*", // รองรับการเชื่อมต่อจากทุกโดเมน (เช่น GitHub Pages)
+    origin: "*",
     methods: ["GET", "POST"]
   }
 });
 
-// เก็บข้อมูลผู้เล่นทุกคนที่กำลังออนไลน์ในขณะนั้น
+// เก็บข้อมูลเกมทั้งหมด (ผู้เล่น, ปลา, กระสุน, บอส, เวฟ)
 let players = {};
+let fishes = [];
+let bullets = [];
+let boss = null;
+let wave = 1;
 
+// ลูปหลักของเซิร์ฟเวอร์ (ทำงาน 30 ครั้งต่อวินาที เพื่อซิงค์ทุกอย่างให้ตรงกัน)
+setInterval(() => {
+  // 1. สุ่มสร้างปลาเข้ามาในเกม (ถ้าปลาน้อยกว่า 15 ตัว)
+  if (fishes.length < 15) {
+    fishes.push({
+      id: Math.random().toString(36).substr(2, 9),
+      x: Math.random() * 600 + 60, // สุ่มตำแหน่งแกน X
+      y: -20,                      // เริ่มจากด้านบนจอ
+      type: 'normal',
+      hp: 2
+    });
+  }
+  
+  // 2. ขยับตำแหน่งปลาให้ไหลลงมาข้างล่างพร้อมกันทุกเครื่อง
+  fishes.forEach(f => {
+    f.y += 1.5;
+  });
+
+  // ลบปลาที่ตกจอออกไปแล้ว
+  fishes = fishes.filter(f => f.y < 1300);
+
+  // 3. ส่งข้อมูลสถานะเกมทั้งหมด (Game State) กลับไปให้ผู้เล่นทุกคนเห็นเหมือนกัน
+  io.emit('game-state', { players, fishes, bullets, boss, wave });
+
+}, 1000 / 30);
+
+// จัดการการเชื่อมต่อของผู้เล่น
 io.on('connection', (socket) => {
-  console.log(`[+] มีผู้เล่นเข้ามาใหม่ Socket ID: ${socket.id}`);
+  console.log(`[+] ผู้เล่นเชื่อมต่อเข้ามาแล้ว ID: ${socket.id}`);
 
-  // กำหนดข้อมูลเริ่มต้นเมื่อผู้เล่นเชื่อมต่อเข้ามา
+  // กำหนดค่าเริ่มต้นของผู้เล่นใหม่
   players[socket.id] = {
     x: 180,
-    y: 320,
+    y: 1100,
     aim: 0,
     hp: 100
   };
 
-  // รับค่าตำแหน่งและการกระทำของผู้เล่นจากฝั่งหน้าเว็บ
+  // รับพิกัดและการเคลื่อนไหวจากผู้เล่น
   socket.on('player-move', (data) => {
     if (players[socket.id]) {
       players[socket.id] = data;
     }
-    // กระจายตำแหน่งผู้เล่นทุกคนในห้องส่งกลับไปให้ทุกๆ เครื่องอัปเดตหน้าจอ
-    io.emit('update-players', players);
   });
 
-  // เมื่อผู้เล่นกดปิดเว็บ หรือหลุดการเชื่อมต่อ
+  // รับข้อมูลเมื่อผู้เล่นยิงกระสุน
+  socket.on('shoot', (bulletData) => {
+    bullets.push({
+      id: Math.random().toString(36).substr(2, 9),
+      playerId: socket.id,
+      x: bulletData.x,
+      y: bulletData.y,
+      vx: bulletData.vx,
+      vy: bulletData.vy
+    });
+  });
+
+  // เมื่อผู้เล่นออกจากเกม หรือปิดหน้าเว็บ
   socket.on('disconnect', () => {
-    console.log(`[-] ผู้เล่นออกจากเกม Socket ID: ${socket.id}`);
+    console.log(`[-] ผู้เล่นออกจากเกม ID: ${socket.id}`);
     delete players[socket.id];
-    // อัปเดตรายชื่อผู้เล่นที่เหลือส่งกลับไปให้เครื่องที่เหลือ
     io.emit('update-players', players);
   });
 });
 
-// รันเซิร์ฟเวอร์รองรับ พอร์ต Dynamic บน Render
+// รันพอร์ตบนเซิร์ฟเวอร์ Render
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`>>> เซิร์ฟเวอร์เกมรันอยู่ที่พอร์ต ${PORT} <<<`);
+  console.log(`>>> เซิร์ฟเวอร์เกมกำลังรันอยู่ที่พอร์ต ${PORT} <<<`);
 });
